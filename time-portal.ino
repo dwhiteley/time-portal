@@ -1,3 +1,6 @@
+#include <stdint.h>
+#include <gfxfont.h>
+
 /***************************************************
   This is our Bitmap drawing example for the Adafruit ILI9341 Breakout and Shield
   ----> http://www.adafruit.com/products/1651
