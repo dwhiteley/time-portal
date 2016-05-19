@@ -6,6 +6,6 @@ Code runs on the Arduino platform (Nano), and drives a ILI9341 TFT display on an
 Original code created by Clive "Max" Maxfield, inspired by the example found in the [Adafruit ILI9341 library](https://github.com/adafruit/Adafruit_ILI9341)
 
 This project uses the following Arduino libraries:
-* [Adafruit_ILI9341](https://github.com/adafruit/Adafruit_ILI9341)
+* [Adafruit_ILI9341](https://github.com/dwhiteley/Adafruit_ILI9341) (forked)
 * [Adafruit-GFX-Library](https://github.com/adafruit/Adafruit-GFX-Library)
 
