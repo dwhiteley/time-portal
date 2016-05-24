@@ -16,9 +16,9 @@
   MIT license, all text above must be included in any redistribution
  ****************************************************/
 
-#define USE_FAST_PINIO 1
 #include <Adafruit_GFX.h>    // Core graphics library
 #include "Adafruit_ILI9341.h" // Hardware-specific library
+//#include "Adafruit_TFTLCD.h"
 #include <SPI.h>
 #include <SD.h>
 
@@ -27,20 +27,27 @@
 // cannot be remapped to alternate pins.  For Arduino Uno,
 // Duemilanove, etc., pin 11 = MOSI, pin 12 = MISO, pin 13 = SCK.
 
-#define TFT_DC 9
-#define TFT_CS 4
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+//#define TFT_DC 9
+//#define TFT_CS 4
+#define TFT_CS A3
+#define TFT_CD A2
+#define TFT_WR A1
+#define TFT_RD A0
 
-#define SD_CS 10
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_WR);
+//Adafruit_TFTLCD  tft = Adafruit_TFTLCD(TFT_CS, TFT_CD, TFT_WR, TFT_RD, A4);
+
+#define SD_CS 4
 
 void setup(void) {
   Serial.begin(9600);
 
   // Initialize Display
+  //tft.begin(0x9341);
   tft.begin();
   tft.fillScreen(ILI9341_BLUE);
   
-  yield();
+  //yield();
 
   Serial.print("Initializing SD card...");
   if (!SD.begin(SD_CS)) {
@@ -83,6 +90,7 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
   uint32_t rowSize;               // Not always = bmpWidth; may have padding
   uint8_t  sdbuffer[3*BUFFPIXEL]; // pixel buffer (R+G+B per pixel)
   uint8_t  buffidx = sizeof(sdbuffer); // Current position in sdbuffer
+  uint16_t *convBuf = reinterpret_cast<uint16_t*>(&sdbuffer[0]); // Alias to sdbuffer to allow memory reuse.
   uint8_t  buf[2];
   uint16_t color;
   boolean  goodBmp = false;       // Set to true on valid header parse
@@ -90,6 +98,7 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
   int      w, h, row, col;
   uint8_t  r, g, b;
   uint32_t pos = 0, startTime = millis();
+  bool     first = true;
 
   if((x >= tft.width()) || (y >= tft.height())) return;
 
@@ -172,12 +181,15 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
               b = sdbuffer[bigIdx++];
               g = sdbuffer[bigIdx++];
               r = sdbuffer[bigIdx++];
-              color = tft.color565(r,g,b);
+              convBuf[pixIdx] = tft.color565(r,g,b);
               //Push converted color back in to buffer
-              sdbuffer[smallIdx++] = color >> 8;
-              sdbuffer[smallIdx++] = color;
+              //sdbuffer[smallIdx++] = color >> 8;
+              //sdbuffer[smallIdx++] = color;
             }
-            tft.pushRaw(sdbuffer,(pixCnt<<1));
+            //tft.pushRaw(sdbuffer,(pixCnt<<1));
+            //tft.pushColors(convBuf,pixCnt,first);
+            tft.pushColors(convBuf,pixCnt);
+            first = false;
           } // end pixel
         } // end scanline
         Serial.print(F("Loaded in "));
