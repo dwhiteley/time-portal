@@ -18,7 +18,7 @@
 
 #include <Adafruit_GFX.h>    // Core graphics library
 #include "Adafruit_ILI9341.h" // Hardware-specific library
-//#include "Adafruit_TFTLCD.h"
+#include "Adafruit_TFTLCD.h"
 #include <SPI.h>
 #include <SD.h>
 
@@ -35,9 +35,11 @@
 #define TFT_RD A0
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_WR);
-//Adafruit_TFTLCD  tft = Adafruit_TFTLCD(TFT_CS, TFT_CD, TFT_WR, TFT_RD, A4);
+//Adafruit_TFTLCD  tft = Adafruit_TFTLCD(TFT_CS, TFT_CD, TFT_WR, TFT_RD, 0);
 
-#define SD_CS 4
+#define SD_CS 10
+
+void fillTest(void);
 
 void setup(void) {
   Serial.begin(9600);
@@ -45,7 +47,7 @@ void setup(void) {
   // Initialize Display
   //tft.begin(0x9341);
   tft.begin();
-  tft.fillScreen(ILI9341_BLUE);
+  fillTest();
   
   //yield();
 
@@ -182,11 +184,7 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
               g = sdbuffer[bigIdx++];
               r = sdbuffer[bigIdx++];
               convBuf[pixIdx] = tft.color565(r,g,b);
-              //Push converted color back in to buffer
-              //sdbuffer[smallIdx++] = color >> 8;
-              //sdbuffer[smallIdx++] = color;
             }
-            //tft.pushRaw(sdbuffer,(pixCnt<<1));
             //tft.pushColors(convBuf,pixCnt,first);
             tft.pushColors(convBuf,pixCnt);
             first = false;
@@ -206,7 +204,18 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
 // These read 16- and 32-bit types from the SD card file.
 // BMP data is stored little-endian, Arduino is little-endian too.
 // May need to reverse subscript order if porting elsewhere.
-
+void fillTest(void)
+{
+  uint32_t startTime = millis();
+  for(unsigned i = 0; i < 10; i++) {
+    tft.fillScreen(ILI9341_BLUE);
+    tft.fillScreen(0);
+    Serial.print(F("Filled in "));
+    Serial.print((millis() - startTime)>>1);
+    Serial.println(" ms");
+    startTime = millis();
+  }
+}
 uint16_t read16(File &f) {
   uint16_t result;
   ((uint8_t *)&result)[0] = f.read(); // LSB
