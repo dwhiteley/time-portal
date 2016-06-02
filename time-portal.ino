@@ -62,13 +62,13 @@ void setup(void) {
 
 void loop() {
 
-  bmpDraw("000000a.bmp", 0, 0);
+  bmpDraw("000000b.raw", 0, 0);
   delay(1000);
   
-  bmpDraw("000001a.bmp", 0, 0);
+  bmpDraw("000001b.raw", 0, 0);
   delay(1000);
 
-  bmpDraw("000002a.bmp", 0, 0);
+  bmpDraw("000002b.raw", 0, 0);
   delay(1000);
 }
 
@@ -115,95 +115,59 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
     return;
   }
 
-  // Parse BMP header
-  if(read16(bmpFile) == 0x4D42) { // BMP signature
-    Serial.print(F("File size: ")); Serial.println(read32(bmpFile));
-    (void)read32(bmpFile); // Read & ignore creator bytes
-    bmpImageoffset = read32(bmpFile); // Start of image data
-    Serial.print(F("Image Offset: ")); Serial.println(bmpImageoffset, DEC);
-    // Read DIB header
-    Serial.print(F("Header size: ")); Serial.println(read32(bmpFile));
-    bmpWidth  = read32(bmpFile);
-    bmpHeight = read32(bmpFile);
-    if(read16(bmpFile) == 1) { // # planes -- must be '1'
-      bmpDepth = read16(bmpFile); // bits per pixel
-      Serial.print(F("Bit Depth: ")); Serial.println(bmpDepth);
-      if((bmpDepth == 24) && (read32(bmpFile) == 0)) { // 0 = uncompressed
+  bmpWidth  = 240;
+  bmpHeight = 320;
+  // BMP rows are padded (if needed) to 4-byte boundary
+  rowSize = (bmpWidth * 2 + 3) & ~3;
 
-        goodBmp = true; // Supported BMP format -- proceed!
-        Serial.print(F("Image size: "));
-        Serial.print(bmpWidth);
-        Serial.print('x');
-        Serial.println(bmpHeight);
+  // Crop area to be loaded
+  w = bmpWidth;
+  h = bmpHeight;
+  if((x+w-1) >= tft.width())  w = tft.width()  - x;
+  if((y+h-1) >= tft.height()) h = tft.height() - y;
 
-        // BMP rows are padded (if needed) to 4-byte boundary
-        rowSize = (bmpWidth * 3 + 3) & ~3;
+  // Set TFT address window to clipped image bounds
+  tft.setAddrWindow(x, y, x+w-1, y+h-1);
 
-        // If bmpHeight is negative, image is in top-down order.
-        // This is not canon but has been observed in the wild.
-        if(bmpHeight < 0) {
-          bmpHeight = -bmpHeight;
-          flip      = false;
-        }
+  for (row=0; row<h; row++) { // For each scanline...
 
-        // Crop area to be loaded
-        w = bmpWidth;
-        h = bmpHeight;
-        if((x+w-1) >= tft.width())  w = tft.width()  - x;
-        if((y+h-1) >= tft.height()) h = tft.height() - y;
-
-        // Set TFT address window to clipped image bounds
-        tft.setAddrWindow(x, y, x+w-1, y+h-1);
-
-        for (row=0; row<h; row++) { // For each scanline...
-
-          // Seek to start of scan line.  It might seem labor-
-          // intensive to be doing this on every line, but this
-          // method covers a lot of gritty details like cropping
-          // and scanline padding.  Also, the seek only takes
-          // place if the file position actually needs to change
-          // (avoids a lot of cluster math in SD library).
-          if(flip) // Bitmap is stored bottom-to-top order (normal BMP)
-            pos = bmpImageoffset + (bmpHeight - 1 - row) * rowSize;
-          else     // Bitmap is stored top-to-bottom
-            pos = bmpImageoffset + row * rowSize;
-          if(bmpFile.position() != pos) { // Need seek?
-            bmpFile.seek(pos);
-            buffidx = sizeof(sdbuffer); // Force buffer reload
-          }
-
-          uint8_t pixCnt = 0;
-          for (col=w; col>0; col-=pixCnt) {
-            pixCnt = (col < BUFFPIXEL)? col : BUFFPIXEL;
-            bmpFile.read(sdbuffer, ((pixCnt<<1)+pixCnt));
-            uint8_t bigIdx = 0;
-            uint8_t smallIdx = 0;
-            for(uint8_t pixIdx=0; pixIdx < pixCnt; pixIdx++) {
-              // Convert pixel from BMP to TFT format  
-              b = sdbuffer[bigIdx++];
-              g = sdbuffer[bigIdx++];
-              r = sdbuffer[bigIdx++];
-              convBuf[pixIdx] = tft.color565(r,g,b);
-            }
-            //tft.pushColors(convBuf,pixCnt,first);
-            tft.pushColors(convBuf,pixCnt);
-            first = false;
-          } // end pixel
-        } // end scanline
-        Serial.print(F("Loaded in "));
-        Serial.print(millis() - startTime);
-        Serial.println(" ms");
-      } // end goodBmp
+    // Seek to start of scan line.  It might seem labor-
+    // intensive to be doing this on every line, but this
+    // method covers a lot of gritty details like cropping
+    // and scanline padding.  Also, the seek only takes
+    // place if the file position actually needs to change
+    // (avoids a lot of cluster math in SD library).
+    //pos = (bmpHeight - 1 - row) * rowSize;
+    pos = row * rowSize;
+    if(bmpFile.position() != pos) { // Need seek?
+      bmpFile.seek(pos);
+      buffidx = sizeof(sdbuffer); // Force buffer reload
     }
-  }
+
+    uint8_t pixCnt = 0;
+    for (col=w; col>0; col-=pixCnt) {
+      pixCnt = (col < BUFFPIXEL)? col : BUFFPIXEL;
+      bmpFile.read(sdbuffer, (pixCnt<<1));
+      uint8_t bigIdx = 0;
+      uint8_t smallIdx = 0;
+//      for(unsigned i = 0; i < (pixCnt<<1); i+=2) {
+//        uint8_t temp = sdbuffer[i];
+//        sdbuffer[i] = sdbuffer[i+1];
+//        sdbuffer[i+1] = temp;
+//      }
+      //tft.pushColors(convBuf,pixCnt,first);
+      tft.pushColors(convBuf,pixCnt);
+      first = false;
+    } // end pixel
+  } // end scanline
+  Serial.print(F("Loaded in "));
+  Serial.print(millis() - startTime);
+  Serial.println(" ms");
 
   bmpFile.close();
-  if(!goodBmp) Serial.println(F("BMP format not recognized."));
 }
 
-// These read 16- and 32-bit types from the SD card file.
-// BMP data is stored little-endian, Arduino is little-endian too.
-// May need to reverse subscript order if porting elsewhere.
+// Performance test using the fillScreen function
 void fillTest(void)
 {
   uint32_t startTime = millis();
@@ -216,6 +180,10 @@ void fillTest(void)
     startTime = millis();
   }
 }
+
+// These read 16- and 32-bit types from the SD card file.
+// BMP data is stored little-endian, Arduino is little-endian too.
+// May need to reverse subscript order if porting elsewhere.
 uint16_t read16(File &f) {
   uint16_t result;
   ((uint8_t *)&result)[0] = f.read(); // LSB
