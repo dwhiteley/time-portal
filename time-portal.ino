@@ -47,7 +47,7 @@ void setup(void) {
   // Initialize Display
   //tft.begin(0x9341);
   tft.begin();
-  fillTest();
+  //fillTest();
   
   //yield();
 
@@ -57,19 +57,26 @@ void setup(void) {
   } else {
     Serial.println("OK!");
   }
+  pinMode(A0, OUTPUT);
 
 }
 
 void loop() {
 
+  digitalWrite(A0, LOW);
   bmpDraw("000000b.raw", 0, 0);
-  delay(1000);
+  digitalWrite(A0, HIGH);
+  delay(2000);
   
+  digitalWrite(A0, LOW);
   bmpDraw("000001b.raw", 0, 0);
-  delay(1000);
-
+  digitalWrite(A0, HIGH);
+  delay(2000);
+  
+  digitalWrite(A0, LOW);
   bmpDraw("000002b.raw", 0, 0);
-  delay(1000);
+  digitalWrite(A0, HIGH);
+  delay(2000);  
 }
 
 
