@@ -22,6 +22,9 @@
 #include <SPI.h>
 #include <SD.h>
 
+#define VSCROLL_DEF   0x33
+#define VSCROLL_START 0x37
+
 // TFT display and SD card will share the hardware SPI interface.
 // Hardware SPI pins are specific to the Arduino board type and
 // cannot be remapped to alternate pins.  For Arduino Uno,
@@ -49,7 +52,6 @@ void setup(void) {
   tft.begin();
   //fillTest();
   
-  //yield();
 
   Serial.print("Initializing SD card...");
   if (!SD.begin(SD_CS)) {
@@ -58,54 +60,67 @@ void setup(void) {
     Serial.println("OK!");
   }
   pinMode(A0, OUTPUT);
-
+  setupScroll();
+  offOn("000000b.raw");
 }
+
+void setupScroll() {
+  tft.writecommand(VSCROLL_DEF);
+  tft.writedata(0);           // BFA[15:8]
+  tft.writedata(0);           // BFA[7:0];
+  tft.writedata(320 >> 8);    // VSA[15:8]
+  tft.writedata(320);         // VSA[7:0]
+  tft.writedata(0);           // TFA[15:8]
+  tft.writedata(0);           // TFA[7:0]
+}
+
+void setScroll(uint16_t ptr) {
+  tft.writecommand(VSCROLL_START);
+  tft.writedata(ptr >> 8);
+  tft.writedata(ptr);
+}
+
+
 
 void loop() {
-
-  digitalWrite(A0, LOW);
-  bmpDraw("000000b.raw", 0, 0);
-  digitalWrite(A0, HIGH);
-  delay(2000);
-  
-  digitalWrite(A0, LOW);
-  bmpDraw("000001b.raw", 0, 0);
-  digitalWrite(A0, HIGH);
-  delay(2000);
-  
-  digitalWrite(A0, LOW);
-  bmpDraw("000002b.raw", 0, 0);
-  digitalWrite(A0, HIGH);
-  delay(2000);  
+  offOn("000000b.raw"); delay(2000);
+  flickerOff(); offOn("000001b.raw"); delay(2000);
+  flickerOff(); offOn("000002b.raw"); delay(2000);
+  flickerOff(); runStatic();
 }
 
+void flicker() {
+  digitalWrite(A0, LOW);
+  delay(100);
+  digitalWrite(A0, HIGH);
+}
 
-// This function opens a Windows Bitmap (BMP) file and
-// displays it at the given coordinates.  It's sped up
-// by reading many pixels worth of data at a time
-// (rather than pixel by pixel).  Increasing the buffer
-// size takes more of the Arduino's precious RAM but
-// makes loading a little faster.  20 pixels seems a
-// good balance.
+void flickerOff() {
+  flicker(); delay(150);
+  flicker(); delay(150);
+  flicker(); delay(600);
+  flicker(); delay(150);
+  digitalWrite(A0, LOW);
+}
+
+void offOn(const char* filename) {
+  digitalWrite(A0, LOW);
+  rawDraw(filename, 0, 0);
+  digitalWrite(A0, HIGH);
+}
 
 #define BUFFPIXEL 20
 
-void bmpDraw(char *filename, uint8_t x, uint16_t y) {
+void rawDraw(const char *filename, uint8_t x, uint16_t y) {
 
   File     bmpFile;
   int      bmpWidth, bmpHeight;   // W+H in pixels
   uint8_t  bmpDepth;              // Bit depth (currently must be 24)
-  uint32_t bmpImageoffset;        // Start of image data in file
   uint32_t rowSize;               // Not always = bmpWidth; may have padding
-  uint8_t  sdbuffer[3*BUFFPIXEL]; // pixel buffer (R+G+B per pixel)
+  uint8_t  sdbuffer[2*BUFFPIXEL]; // pixel buffer (R+G+B per pixel)
   uint8_t  buffidx = sizeof(sdbuffer); // Current position in sdbuffer
   uint16_t *convBuf = reinterpret_cast<uint16_t*>(&sdbuffer[0]); // Alias to sdbuffer to allow memory reuse.
-  uint8_t  buf[2];
-  uint16_t color;
-  boolean  goodBmp = false;       // Set to true on valid header parse
-  boolean  flip    = true;        // BMP is stored bottom-to-top
   int      w, h, row, col;
-  uint8_t  r, g, b;
   uint32_t pos = 0, startTime = millis();
   bool     first = true;
 
@@ -144,7 +159,6 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
     // and scanline padding.  Also, the seek only takes
     // place if the file position actually needs to change
     // (avoids a lot of cluster math in SD library).
-    //pos = (bmpHeight - 1 - row) * rowSize;
     pos = row * rowSize;
     if(bmpFile.position() != pos) { // Need seek?
       bmpFile.seek(pos);
@@ -157,11 +171,6 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
       bmpFile.read(sdbuffer, (pixCnt<<1));
       uint8_t bigIdx = 0;
       uint8_t smallIdx = 0;
-//      for(unsigned i = 0; i < (pixCnt<<1); i+=2) {
-//        uint8_t temp = sdbuffer[i];
-//        sdbuffer[i] = sdbuffer[i+1];
-//        sdbuffer[i+1] = temp;
-//      }
       //tft.pushColors(convBuf,pixCnt,first);
       tft.pushColors(convBuf,pixCnt);
       first = false;
@@ -186,6 +195,35 @@ void fillTest(void)
     Serial.println(" ms");
     startTime = millis();
   }
+}
+
+void fillRand() {
+  tft.setAddrWindow(0, 0, tft.width(), tft.height());
+  for(uint16_t y = 0; y < tft.height(); y++) {
+    for(uint16_t x = 0; x < tft.width(); x+=8) {
+      uint8_t r = random(255);
+      for(uint8_t i=0; i<8; i++) {
+        if(r&1) {
+          tft.pushColor(ILI9341_BLACK);
+        }
+        else {
+          tft.pushColor(ILI9341_WHITE);
+        }
+        r >>= 1;
+      }
+    }
+  }
+}
+
+void runStatic() {
+  digitalWrite(A0, LOW);
+  fillRand();
+  digitalWrite(A0, HIGH);
+  for (uint16_t i=0; i < 320; i++) {
+    setScroll(random(319));
+    delay(10);
+  }
+  setScroll(0);
 }
 
 // These read 16- and 32-bit types from the SD card file.
