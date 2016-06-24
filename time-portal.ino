@@ -61,6 +61,7 @@ void setup(void) {
   }
   pinMode(A0, OUTPUT);
   setupScroll();
+  setScroll(0);
   offOn("000000b.raw");
 }
 
@@ -69,7 +70,7 @@ void setupScroll() {
   tft.writedata(0);           // BFA[15:8]
   tft.writedata(0);           // BFA[7:0];
   tft.writedata(320 >> 8);    // VSA[15:8]
-  tft.writedata(320);         // VSA[7:0]
+  tft.writedata(320 & 0xFF);  // VSA[7:0]
   tft.writedata(0);           // TFA[15:8]
   tft.writedata(0);           // TFA[7:0]
 }
@@ -81,44 +82,28 @@ void setScroll(uint16_t ptr) {
 }
 
 
-
-void loop() {
-  offOn("000000b.raw"); delay(2000);
-  flickerOff(); offOn("000001b.raw"); delay(2000);
-  flickerOff(); offOn("000002b.raw"); delay(2000);
-  flickerOff(); runStatic();
-}
-
-void flicker() {
-  digitalWrite(A0, LOW);
+void flick(uint8_t level) {
+  digitalWrite(A0, level);
   delay(100);
-  digitalWrite(A0, HIGH);
+  digitalWrite(A0, 1-level);
 }
 
-void flickerOff() {
-  flicker(); delay(150);
-  flicker(); delay(150);
-  flicker(); delay(600);
-  flicker(); delay(150);
-  digitalWrite(A0, LOW);
+void flickerTo(uint8_t level) {
+  flick(level); delay(150);
+  flick(level); delay(150);
+  flick(level); delay(600);
+  flick(level); delay(150);
+  digitalWrite(A0, level);
 }
 
-void offOn(const char* filename) {
-  digitalWrite(A0, LOW);
-  rawDraw(filename, 0, 0);
-  digitalWrite(A0, HIGH);
-}
+#define BUFFPIXEL 30
 
-#define BUFFPIXEL 20
-
-void rawDraw(const char *filename, uint8_t x, uint16_t y) {
+void rawDraw(const char *filename, uint8_t x, uint16_t y, bool scrolling=false) {
 
   File     bmpFile;
   int      bmpWidth, bmpHeight;   // W+H in pixels
-  uint8_t  bmpDepth;              // Bit depth (currently must be 24)
   uint32_t rowSize;               // Not always = bmpWidth; may have padding
   uint8_t  sdbuffer[2*BUFFPIXEL]; // pixel buffer (R+G+B per pixel)
-  uint8_t  buffidx = sizeof(sdbuffer); // Current position in sdbuffer
   uint16_t *convBuf = reinterpret_cast<uint16_t*>(&sdbuffer[0]); // Alias to sdbuffer to allow memory reuse.
   int      w, h, row, col;
   uint32_t pos = 0, startTime = millis();
@@ -132,7 +117,8 @@ void rawDraw(const char *filename, uint8_t x, uint16_t y) {
   Serial.println('\'');
 
   // Open requested file on SD card
-  if ((bmpFile = SD.open(filename)) == NULL) {
+  bmpFile = SD.open(filename);
+  if (bmpFile == 0) {
     Serial.print(F("File not found"));
     return;
   }
@@ -149,7 +135,12 @@ void rawDraw(const char *filename, uint8_t x, uint16_t y) {
   if((y+h-1) >= tft.height()) h = tft.height() - y;
 
   // Set TFT address window to clipped image bounds
-  tft.setAddrWindow(x, y, x+w-1, y+h-1);
+  if(scrolling) {
+    tft.setAddrWindow(x, y, x+w-1, y+1);
+  }
+  else {
+    tft.setAddrWindow(x, y, x+w-1, y+h-1);
+  }
 
   for (row=0; row<h; row++) { // For each scanline...
 
@@ -162,7 +153,6 @@ void rawDraw(const char *filename, uint8_t x, uint16_t y) {
     pos = row * rowSize;
     if(bmpFile.position() != pos) { // Need seek?
       bmpFile.seek(pos);
-      buffidx = sizeof(sdbuffer); // Force buffer reload
     }
 
     uint8_t pixCnt = 0;
@@ -175,12 +165,37 @@ void rawDraw(const char *filename, uint8_t x, uint16_t y) {
       tft.pushColors(convBuf,pixCnt);
       first = false;
     } // end pixel
+    if (scrolling) {
+      setScroll(row);
+      tft.setAddrWindow(x, y+row, x+w-1, y+row+1);
+    }
   } // end scanline
+  if (scrolling) {
+    setScroll(0);
+  }
   Serial.print(F("Loaded in "));
   Serial.print(millis() - startTime);
   Serial.println(" ms");
 
   bmpFile.close();
+}
+
+void loop() {
+  offOn("000000b.raw"); delay(2000);
+  flickerTo(LOW);
+  rawDraw("000001b.raw", 0, 0, false);
+  flickerTo(HIGH); 
+  delay(2000);
+  rawDraw("000002b.raw", 0, 0, true);
+  delay(2000);
+  flickerTo(LOW);
+  runStatic(1000);
+}
+
+void offOn(const char* filename) {
+  digitalWrite(A0, LOW);
+  rawDraw(filename, 0, 0, false);
+  digitalWrite(A0, HIGH);
 }
 
 // Performance test using the fillScreen function
@@ -200,9 +215,9 @@ void fillTest(void)
 void fillRand() {
   tft.setAddrWindow(0, 0, tft.width(), tft.height());
   for(uint16_t y = 0; y < tft.height(); y++) {
-    for(uint16_t x = 0; x < tft.width(); x+=8) {
-      uint8_t r = random(255);
-      for(uint8_t i=0; i<8; i++) {
+    for(uint16_t x = 0; x < tft.width(); x+=16) {
+      unsigned r = random(0xFFFFU);
+      for(uint8_t i=0; i<16; i++) {
         if(r&1) {
           tft.pushColor(ILI9341_BLACK);
         }
@@ -215,11 +230,11 @@ void fillRand() {
   }
 }
 
-void runStatic() {
+void runStatic(uint16_t frames) {
   digitalWrite(A0, LOW);
   fillRand();
   digitalWrite(A0, HIGH);
-  for (uint16_t i=0; i < 320; i++) {
+  for (uint16_t i=0; i < frames; i++) {
     setScroll(random(319));
     delay(10);
   }
