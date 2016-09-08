@@ -62,7 +62,8 @@ void setup(void) {
   pinMode(A0, OUTPUT);
   setupScroll();
   setScroll(0);
-  offOn("000000b.raw");
+  //offOn("000000b.raw");
+  offOn("bubble.raw");
 }
 
 void setupScroll() {
@@ -181,15 +182,21 @@ void rawDraw(const char *filename, uint8_t x, uint16_t y, bool scrolling=false) 
 }
 
 void loop() {
-  offOn("000000b.raw"); delay(2000);
-  flickerTo(LOW);
-  rawDraw("000001b.raw", 0, 0, false);
-  flickerTo(HIGH); 
-  delay(2000);
-  rawDraw("000002b.raw", 0, 0, true);
-  delay(2000);
-  flickerTo(LOW);
-  runStatic(1000);
+//  offOn("000000b.raw"); delay(2000);
+//  flickerTo(LOW);
+//  rawDraw("000001b.raw", 0, 0, false);
+//  flickerTo(HIGH); 
+//  delay(2000);
+//  rawDraw("000002b.raw", 0, 0, true);
+//  delay(2000);
+//  flickerTo(LOW);
+//  runStatic(1000);
+  static int frame_row = 0;
+  setScroll(frame_row);
+  frame_row +=320/8;
+  if(frame_row >= 320)
+    frame_row-=320;
+    delay(75);
 }
 
 void offOn(const char* filename) {
