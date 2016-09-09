@@ -1,22 +1,16 @@
 #include <stdint.h>
 #include <gfxfont.h>
+#include <stdio.h>
 
 /***************************************************
-  This is our Bitmap drawing example for the Adafruit ILI9341 Breakout and Shield
-  ----> http://www.adafruit.com/products/1651
-
-  Check out the links above for our tutorials and wiring diagrams
-  These displays use SPI to communicate, 4 or 5 pins are required to
-  interface (RST is optional)
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit and open-source hardware by purchasing
-  products from Adafruit!
-
-  Written by Limor Fried/Ladyada for Adafruit Industries.
-  MIT license, all text above must be included in any redistribution
+  Time portal sketch.
+  Flickers between mirror image and a random image.
+  Based on the bitmap drawing example written by Limor Fried/Ladyada for
+  Adafruit Industries.
  ****************************************************/
 
 #include "time-portal-effects.h"
+#define NUM_IMAGES 84
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_WR);
 //Adafruit_TFTLCD  tft = Adafruit_TFTLCD(TFT_CS, TFT_CD, TFT_WR, TFT_RD, 0);
@@ -39,24 +33,24 @@ void setup(void) {
   pinMode(A0, OUTPUT);
   setupScroll();
   setScroll(0);
-  //offOn("000000b.raw");
-  offOn("bubble.raw");
+  offOn("000000b.raw");
+  //offOn("bubble.raw");
 }
 
 void loop() {
-//  offOn("000000b.raw"); delay(2000);
-//  flickerTo(LOW);
-//  rawDraw("000001b.raw", 0, 0, false);
-//  flickerTo(HIGH); 
-//  delay(2000);
-//  rawDraw("000002b.raw", 0, 0, true);
-//  delay(2000);
-//  flickerTo(LOW);
-//  runStatic(1000);
-  static int frame_row = 0;
-  setScroll(frame_row);
-  frame_row +=320/8;
-  if(frame_row >= 320)
-    frame_row-=320;
-    delay(75);
+  char image_name[12]; 
+  offOn("000000b.raw"); delay(2000); flickerTo(LOW);
+  sprintf(&image_name[0], "%06db.raw", rand() % NUM_IMAGES + 1);
+  rawDraw(&image_name[0], 0, 0, false);
+  flickerTo(HIGH); delay(2000); flickerTo(LOW);
+  //rawDraw("000002b.raw", 0, 0, true);
+  //delay(2000);
+  //flickerTo(LOW);
+  //runStatic(1000);
+  //static int frame_row = 0;
+  //setScroll(frame_row);
+  //frame_row +=320/8;
+  //if(frame_row >= 320)
+  //  frame_row-=320;
+  //  delay(75);
 }
