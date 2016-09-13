@@ -19,9 +19,9 @@ void setScroll(uint16_t ptr) {
 }
 
 void flick(uint8_t level) {
-  digitalWrite(A0, level);
+  digitalWrite(LIGHT, level);
   delay(100);
-  digitalWrite(A0, 1-level);
+  digitalWrite(LIGHT, 1-level);
 }
 
 void flickerTo(uint8_t level) {
@@ -29,7 +29,7 @@ void flickerTo(uint8_t level) {
   flick(level); delay(150);
   flick(level); delay(600);
   flick(level); delay(150);
-  digitalWrite(A0, level);
+  digitalWrite(LIGHT, level);
 }
 
 void rawDraw(const char *filename, uint8_t x, uint16_t y, bool scrolling) {
@@ -114,10 +114,19 @@ void rawDraw(const char *filename, uint8_t x, uint16_t y, bool scrolling) {
   bmpFile.close();
 }
 
+void rand_wait(void) {
+    unsigned long rand_delay = (rand() % (WAIT_HIGH-WAIT_LOW)) + WAIT_LOW;
+    delay(rand_delay);
+}
+
+uint8_t get_option(void) {
+    return (digitalRead(6) << 2)|(digitalRead(5) << 1)|digitalRead(4);
+}
+
 void offOn(const char* filename) {
-  digitalWrite(A0, LOW);
+  digitalWrite(LIGHT, LOW);
   rawDraw(filename, 0, 0, false);
-  digitalWrite(A0, HIGH);
+  digitalWrite(LIGHT, HIGH);
 }
 
 // Performance test using the fillScreen function
@@ -153,9 +162,9 @@ void fillRand() {
 }
 
 void runStatic(uint16_t frames) {
-  digitalWrite(A0, LOW);
+  digitalWrite(LIGHT, LOW);
   fillRand();
-  digitalWrite(A0, HIGH);
+  digitalWrite(LIGHT, HIGH);
   for (uint16_t i=0; i < frames; i++) {
     setScroll(random(319));
     delay(10);

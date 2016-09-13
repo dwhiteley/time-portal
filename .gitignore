@@ -2,3 +2,5 @@
 *~
 img
 *.pyc
+*.bmp
+*.raw
