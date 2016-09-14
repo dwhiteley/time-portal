@@ -19,9 +19,9 @@ The script will create XXXXXXb.raw files in the img/raw folder. These files shou
 
 Clean Build of Health
 ---------------------
-1. Make a folder for the Adafruit ILI9341 library at <<Arduino>>/libraries/Adafruit\_ILI9341, where <<Arduino>> is you base Arduino project directory
-2. Clone the latest contents of [Adafruit\_ILI9341](https://github.com/dwhiteley/Adafruit_ILI9341) <<Arduino>>/libraries/Adafruit\_ILI9341 ([link to zip](https://github.com/dwhiteley/Adafruit_ILI9341/archive/master.zip))
-3. Make a project folder for this sketches code at <<Arduino>>/time-portal
-4. Clone the contents of the publish branch of this repo into <<Arduino>>/time-portal ([link to zip](https://github.com/dwhiteley/time-portal/archive/publish.zip))
-5. Open the Arduino IDE and ensure that you have installed the latest Adafruit GFX library (required for the Adafruit ILI9341 library)
+1. Make a folder for the Adafruit ILI9341 library at \<Arduino>/libraries/Adafruit\_ILI9341, where \<Arduino> is you base Arduino project directory
+2. Clone the latest contents of [Adafruit\_ILI9341](https://github.com/dwhiteley/Adafruit_ILI9341) \<Arduino>/libraries/Adafruit\_ILI9341 ([link to zip](https://github.com/dwhiteley/Adafruit_ILI9341/archive/master.zip))
+3. Make a project folder for this sketches code at \<Arduino>/time-portal
+4. Clone the contents of the publish branch of this repo into \<Arduino>/time-portal ([link to zip](https://github.com/dwhiteley/time-portal/archive/publish.zip))
+5. Open the Arduino IDE and ensure that you have installed the latest Adafruit GFX library (required for the Adafruit ILI9341 library) via the Library Manager.
 6. Verify the sketch
