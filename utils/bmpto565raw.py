@@ -1,6 +1,7 @@
 from PIL import Image
 import sys, struct
 from glob import glob
+from os.path import exists
 
 VERIFY = False
 
@@ -25,7 +26,8 @@ if __name__ == '__main__':
         #in_name = "img/originals/%06da.bmp"%i
         #out_name = "img/raw/%06db.raw"%i
         o = i.replace('originals','raw').replace('a.bmp','b.raw')
-        convert(i, o)
+        if not exists(o):
+            convert(i,o)
     
     # verify
     if VERIFY:

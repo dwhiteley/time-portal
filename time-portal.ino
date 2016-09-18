@@ -47,14 +47,19 @@ enum {
 ////////////////////////////////////////////////////////////////////////////////
 // Prototypes for helper functions
 ////////////////////////////////////////////////////////////////////////////////
-void fillTest(void);
 void setupScroll(void);
 void setScroll(uint16_t row);
-void flick(uint8_t level);
-void flickerTo(uint8_t level);
+void load_mirror_image(void);
+void load_random_image(void);
 void rawDraw(const char *filename, bool scrolling=false);
+unsigned long uniform(unsigned long low, unsigned long high);
 void rand_wait(void);
 uint8_t get_option(void);
+void flick(uint8_t level);
+void flickerTo(uint8_t level);
+void fadeTo(uint8_t level);
+void fadeOn(void);
+void fadeOff(void);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global Variables/Objects
@@ -86,9 +91,9 @@ void setup(void) {
   digitalWrite(LIGHT, LOW);
 
   // Initialize option select pins
-  pinMode(OP2, INPUT);
-  pinMode(OP1, INPUT);
-  pinMode(OP0, INPUT);
+  pinMode(OP2, INPUT_PULLUP);
+  pinMode(OP1, INPUT_PULLUP);
+  pinMode(OP0, INPUT_PULLUP);
 
   // Setup display scrolling
   setupScroll();
@@ -109,58 +114,62 @@ void loop() {
     if(SCREEN_OFF == option) { // If in screen off state
         // Turn of screen if needed (i.e. MIRROR_ONLY -> SCREEN_OFF)
         if(HIGH == digitalRead(LIGHT)) {
-            flickerTo(LOW); 
+            transitionTo(LOW); 
         }
-        rand_wait(); // Hold screen off
+        delay(2000); // Hold screen off
     }
     else { // option = MIRROR_ONLY or MIRROR_IMAGE or IMAGE_ONLY
         // Display image(s)
         if(IMAGE_ONLY != option) { // If option = MIRROR_ONLY or MIRROR_IMAGE
-            // Display mirror image
-
+            // Mirror image should be on display
             if(!on_mirror) { // If mirror image not in display memory
-                // Load mirror image to display memory
-                // Note: Assumes backlight off during this operation
-                rawDraw("000000b.raw", false);
-                on_mirror = true; // Indicate the mirror image in display memory
+                load_mirror_image(); // Load the mirror image (assuming backlight is off)
             }
             // Turn on backlight if needed (not needed if last state was MIRROR_ONLY)
             if(LOW == digitalRead(LIGHT)) {
-                flickerTo(HIGH);
+                transitionTo(HIGH);
             }
             rand_wait();     // Hold mirror image
         }
 
         if(MIRROR_ONLY != option) { // If option = MIRROR_IMAGE or IMAGE_ONLY
             // Display random image (next)
-
-            char image_name[12]; // String variable for random image filename
-
-            // Turn off backlight if on in preparation of loading radom image
-            // (occurs after displaying mirror image)
             if(HIGH == digitalRead(LIGHT)) {
-                flickerTo(LOW); 
+                transitionTo(LOW); // Turn off image in prep of loading
             }
-            // Pick a random image. Assumptions:
-            // * Random images are of the form XXXXXXb.raw, where XXXXXX is a zero padded integer
-            // * There are no gaps in file numbering
-            // * Random image indexing starts at 000001
-            // * NUM_IMAGES is the index of the last random image
-            unsigned index = rand() % NUM_IMAGES + 1;    // Pick a number between 1 and NUM_IMAGES
-            sprintf(&image_name[0], "%06db.raw", index); // Generate filename from image index
-            rawDraw(&image_name[0], false);              // Load image into memory
-
-            flickerTo(HIGH);   // Turn backlight on
-            rand_wait();       // Hold random image
-            flickerTo(LOW);    // Turn backlight off (in preparation of next loop iteration)
-            on_mirror = false; // Indicate random image in display memory
+            load_random_image(); // Load a random image
+            transitionTo(HIGH);  // Turn backlight on
+            rand_wait();         // Hold random image
+            transitionTo(LOW);   // Turn backlight off (in preparation of next loop iteration)
         }
     }
+    
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Helper Functions
 ////////////////////////////////////////////////////////////////////////////////
+
+// Load mirror image to display memory
+// Note: Assumes backlight off during this operation
+void load_mirror_image(void) {
+     rawDraw("000000b.raw", false); // Filename of mirror image
+     on_mirror = true;              // Indicate the mirror image in display memory
+}
+
+// Picks and loads a random image. Assumptions:
+// * Backlight is off
+// * Random images are of the form XXXXXXb.raw, where XXXXXX is a zero padded integer
+// * There are no gaps in file numbering
+// * Random image indexing starts at 000001
+// * NUM_IMAGES is the index of the last random image
+void load_random_image(void) {
+    char image_name[12];                         // String variable for random image filename
+    unsigned index = rand() % NUM_IMAGES + 1;    // Pick a number between 1 and NUM_IMAGES
+    sprintf(&image_name[0], "%06db.raw", index); // Generate filename from image index
+    rawDraw(&image_name[0], false);              // Load image into memory
+    on_mirror = false;                           // Indicate random image in display memory
+}
 
 // Loads a raw image file into display memory
 // Inspired by main loop function found in Adafruit's bitmap drawing example
@@ -236,11 +245,16 @@ void rawDraw(const char *filename, bool scrolling) {
     bmpFile.close(); // Close raw image file
 }
 
+// Return a random integer in range [low, high)
+unsigned long uniform(unsigned long low, unsigned long high) {
+    return (rand() % (high-low)) + low;
+}
+
 // Wait a random amount of time.
 // Lower and upper bounds defined by WAIT_LOw and WAIT_HIGH respectively
 void rand_wait(void) {
-    unsigned long rand_delay = (rand() % (WAIT_HIGH-WAIT_LOW)) + WAIT_LOW;
-    delay(rand_delay);
+    //delay(2000); //Small delay version for debugging
+    delay(uniform(WAIT_LOW, WAIT_HIGH));
 }
 
 // Get option state from option state pins
@@ -272,6 +286,12 @@ void setScroll(uint16_t row) {
     tft.writedata(row);
 }
 
+// A shim function which allows to choose between flicker or fade transitions
+void transitionTo(uint8_t level) {
+    flickerTo(level);
+    //fadeTo(level);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Flicker effect functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -279,7 +299,7 @@ void setScroll(uint16_t row) {
 // Toggles backlight between off/on or on/off (depending on level)
 void flick(uint8_t level) {
     digitalWrite(LIGHT, level);
-    delay(100);
+    delay(75);
     digitalWrite(LIGHT, 1-level);
 }
 
@@ -287,10 +307,41 @@ void flick(uint8_t level) {
 // Transition appears as flickering to that state.
 void flickerTo(uint8_t level) {
     // Flicker four times, waiting in between flickers
-    flick(level); delay(150);
-    flick(level); delay(150);
-    flick(level); delay(600);
-    flick(level); delay(150);
+    flick(level); delay(uniform(75 ,300));
+    flick(level); delay(uniform(150,400));
+    flick(level); delay(uniform(300,500));
+    flick(level); delay(uniform(75 ,150));
     digitalWrite(LIGHT, level);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Fade effect functions
+////////////////////////////////////////////////////////////////////////////////
+void fadeTo(uint8_t level) {
+    if (LOW == level) {
+        fadeOff();
+    }
+    else {
+        fadeOn();
+    }
+}
+
+void fadeOff(void) {
+    static const int8_t inc = 16;
+
+    for (uint8_t val = 255; val >= inc; val-=inc) {
+        analogWrite(LIGHT, val);
+        delay(75);
+    }
+    analogWrite(LIGHT, 0);
+}
+
+void fadeOn(void) {
+    static const int8_t inc = 16;
+
+    for (uint8_t val = 0; (255-val) >= inc; val+=inc) {
+        analogWrite(LIGHT, val);
+        delay(75);
+    }
+    analogWrite(LIGHT, 255);
+}
